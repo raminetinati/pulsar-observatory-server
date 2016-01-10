@@ -64,7 +64,7 @@ var channel = socket.subscribe('panoptes');
 channel.bind('classification',
   function(data) {
 
-    //console.log(data)
+    console.log(data)
 
     constructAndEmitLiveStream(data);
 
@@ -151,7 +151,7 @@ io.on('connection', function (socket) {
      socket.on('load_data', function (data) {
         console.log("Loading Map Data");
         //console.log("emitting filter:", filter); 
-        //loadHistoricClassificationData(socket);  
+        loadHistoricClassificationData(socket);  
     });
 
     //  //we will then proceed to load the pollution data
@@ -168,23 +168,26 @@ io.on('connection', function (socket) {
 
 //INFO: This function retrieves ALL the pollution data in the collection and streams it to the client
 function loadHistoricClassificationData(socket){
-    console.log("Loading Historic Classification Data");
+    console.log("Loading Historic Classification Data Timeseries");
 
     var toSend = [];
 
     var stream = pm_Model.find().stream();
 
     stream.on('data', function (doc) {
-        //console.log(doc)
-        toSend.push(doc);
-        socket.emit("historic_data", toSend);
-        toSend = [];
+       var status = JSON.parse(doc.status);
+        //console.log(status.created_at);  
+        toSend.push(status.created_at);
+        //socket.emit("historic_data", toSend);
+        //toSend = [];
       // do something with the mongoose document
     }).on('error', function (err) {
       // handle the error
     }).on('close', function () {        
       // the stream is closed
-        socket.emit("finished_sending_historic_classification_data", "");
+        socket.emit("historic_data", toSend);
+       // socket.emit("finished_sending_historic_classification_data", "");
+        toSend = [];
         //loadPM25Data(socket)
     });
 
