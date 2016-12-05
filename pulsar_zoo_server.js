@@ -9,6 +9,7 @@ var dateFormat = require('dateformat');
 var mongoose = require('mongoose');
 var Pusher = require('pusher-client');
 
+
 //-------------------
 //This is the working port
 //PLEASE NOTE: You must configure this in order for this to correctly run. 
@@ -61,10 +62,11 @@ var socket = new Pusher('79e8e05ea522377ba6db',{
 });
 var channel = socket.subscribe('panoptes');
 
+//console.log("trying to get data from pusher...")
 channel.bind('classification',
   function(data) {
 
-    console.log(data)
+  //console.log(data)
 
     constructAndEmitLiveStream(data);
 
@@ -72,6 +74,32 @@ channel.bind('classification',
 );
 
 
+var channelTwo = socket.subscribe('talk');
+
+channelTwo.bind('comment',
+  function(data) {
+
+    console.log(data)
+
+   // constructAndEmitLiveStream(data);
+
+  }
+);
+
+
+
+
+// { classification_id: '10054109',
+//   project_id: '593',
+//   workflow_id: '338',
+//   user_id: '1447883',
+//   geo:
+//    { country_name: 'Greece',
+//      country_code: 'GR',
+//      city_name: 'Athens',
+//      coordinates: [ 23.7333, 37.9833 ],
+//      latitude: 37.9833,
+//      longitude: 23.7333 } }
 
 function constructAndEmitLiveStream(data){
 
@@ -87,7 +115,7 @@ function constructAndEmitLiveStream(data){
     toSend["user_id"] = data.user_id
     toSend["project_id"] = data.project_id
     toSend["subjects"] = data.classification_id
-    toSend["created_at"] = (data.event_time).split(".")[0]
+    toSend["created_at"] = new Date().toISOString()
     toSend["lat"] = data.geo.coordinates[0]
     toSend["lng"] = data.geo.coordinates[1]
  
@@ -98,13 +126,14 @@ function constructAndEmitLiveStream(data){
     //also need to send this data to the database.
     try{
       saveData(toSend)
-      console.log("saving data")
+      //console.log("saving data")
     }catch(e1){
-
+        //console.log(e1)
     }
 
   }catch(e){
 
+      //console.log(e)
 
   }
 
@@ -185,11 +214,40 @@ function loadHistoricClassificationData(socket){
       // handle the error
     }).on('close', function () {        
       // the stream is closed
-        socket.emit("historic_data", toSend);
+
+        //pre-process timestamps and then send them
+        preprocesstimestamps(toSend,socket);
+
        // socket.emit("finished_sending_historic_classification_data", "");
         toSend = [];
         //loadPM25Data(socket)
     });
+
+}
+
+
+function preprocesstimestamps(toSend,socket){
+
+ console.log("sending pre-processed timestamps as historic data")
+  var timestamp_dist = {};
+  var timeseries = [];
+
+  for(var i=0; i<toSend.length; i++) {
+
+    var data = toSend[i];
+    var tstamp = Date.parse(data)
+    var timestamp = dateFormat(tstamp, "yyyy-mm-dd hh:00:00");
+
+    if(timestamp in timestamp_dist){
+        var cnt = timestamp_dist[timestamp];
+        timestamp_dist[timestamp] =cnt + 1
+    }else{
+        timestamp_dist[timestamp] = 1
+    }
+
+  }
+        socket.emit("historic_data", timestamp_dist);
+
 
 }
 
